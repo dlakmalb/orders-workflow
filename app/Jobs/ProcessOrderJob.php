@@ -19,7 +19,7 @@ class ProcessOrderJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $backoff = 5;
+    public int $backoff = 5; // seconds between retries
 
     /**
      * Create a new job instance.
