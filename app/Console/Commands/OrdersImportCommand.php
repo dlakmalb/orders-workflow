@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\ProcessOrderJob;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -288,6 +289,9 @@ class OrdersImportCommand extends Command
                 $total = (int) ($sums[$orderId] ?? 0);
 
                 Order::whereKey($orderId)->update(['total_cents' => $total]);
+
+                // Enqueue processing job once per order
+                ProcessOrderJob::dispatch($orderId);
             }
         });
     }
