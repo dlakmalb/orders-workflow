@@ -19,7 +19,7 @@ class ProcessOrderJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $backoff = 5;
+    public int $backoff = 5; // seconds between retries
 
     /**
      * Create a new job instance.
@@ -40,11 +40,13 @@ class ProcessOrderJob implements ShouldQueue
         $order = Order::findorFail($this->orderId);
 
         if (! $order) {
+            Log::warning("Order {$this->orderId} not found, skipping order process.");
+
             return;
         }
 
         if ($order->isTerminal()) {
-            Log::info("Order {$order->id} is already in terminal state {$order->status}, skipping processing.");
+            Log::info("Order {$this->orderId} is already in terminal state {$order->status}, skipping order process.");
 
             return;
         }

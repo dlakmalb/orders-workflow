@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Services\KpiService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -35,7 +36,7 @@ class PaymentCallbackJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(KpiService $kpiService): void
     {
         $order = Order::find($this->orderId);
 
@@ -46,14 +47,24 @@ class PaymentCallbackJob implements ShouldQueue
         }
 
         if ($order->isTerminal()) {
-            Log::info("Order {$order->id} is already in terminal state {$order->status}, skipping callback.");
+            Log::info("Order {$this->orderId} is already in terminal state {$order->status}, skipping callback.");
 
             return;
         }
 
-        $this->succeeded
-            ? $this->handleSuccess($order)
-            : $this->handleFailure($order);
+        if ($this->succeeded) {
+            $this->handleSuccess($order);
+
+            $kpiService->recordSuccess($order->customer_id, $order->total_cents);
+
+            OrderProcessedNotification::dispatch($order, true);
+        } else {
+            $this->handleFailure($order);
+
+            $kpiService->recordFailure($order->customer_id, $order->total_cents);
+
+            OrderProcessedNotification::dispatch($order, false);
+        }
     }
 
     private function handleSuccess(Order $order): void
