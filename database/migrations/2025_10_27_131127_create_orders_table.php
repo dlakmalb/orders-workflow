@@ -18,7 +18,7 @@ return new class extends Migration
             $table->enum('status', ['PENDING', 'PAID', 'FAILED', 'CANCELLED'])->default('PENDING');
             $table->char('currency', 3);
             $table->unsignedInteger('total_cents')->default(0); // Total amount computed in cents for fast retrieval
-            $table->dateTimeTz('placed_at', 6);
+            $table->dateTimeTz('placed_at');
 
             $table->timestamps(6);
 
