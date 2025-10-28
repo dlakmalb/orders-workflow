@@ -57,13 +57,13 @@ class PaymentCallbackJob implements ShouldQueue
 
             $kpiService->recordSuccess($order->customer_id, $order->total_cents);
 
-            OrderProcessedNotification::dispatch($order, true);
+            OrderProcessedNotification::dispatch($order->id, true);
         } else {
             $this->handleFailure($order);
 
             $kpiService->recordFailure($order->customer_id, $order->total_cents);
 
-            OrderProcessedNotification::dispatch($order, false);
+            OrderProcessedNotification::dispatch($order->id, false);
         }
     }
 
