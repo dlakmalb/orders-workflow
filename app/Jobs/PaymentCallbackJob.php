@@ -47,7 +47,7 @@ class PaymentCallbackJob implements ShouldQueue
         }
 
         if ($order->isTerminal()) {
-            Log::info("Order {$order->id} is already in terminal state {$order->status}, skipping callback.");
+            Log::info("Order {$this->orderId} is already in terminal state {$order->status}, skipping callback.");
 
             return;
         }

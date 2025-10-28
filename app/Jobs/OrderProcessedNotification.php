@@ -28,6 +28,8 @@ class OrderProcessedNotification implements ShouldQueue
         $order = Order::with('customer')->find($this->orderId);
 
         if (! $order) {
+            Log::warning("Order {$this->orderId} not found, skipping notification process.");
+
             return;
         }
 

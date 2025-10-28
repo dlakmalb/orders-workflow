@@ -30,8 +30,14 @@ class FakeGatewayChargeJob implements ShouldQueue
     {
         $order = Order::find($this->orderId);
 
-        if (! $order || $order->isTerminal()) {
-            Log::info("Order {$order->id} is already in terminal state {$order->status}, skipping processing.");
+        if (! $order) {
+            Log::warning("Order {$this->orderId} not found, skipping processing.");
+
+            return;
+        }
+
+        if ($order->isTerminal()) {
+            Log::info("Order {$this->orderId} is already in terminal state {$order->status}, skipping processing.");
 
             return;
         }
