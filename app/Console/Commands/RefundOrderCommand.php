@@ -61,7 +61,7 @@ class RefundOrderCommand extends Command
         }
 
         $totalPaymentAmount = Payment::where('order_id', $order->id)
-            ->where('status', 'SUCCEEDED')
+            ->where('status', Payment::STATUS_SUCCEEDED)
             ->sum('amount_cents');
 
         $alreadyRefundedAmount = Refund::where('order_id', $order->id)

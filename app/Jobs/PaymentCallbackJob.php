@@ -77,7 +77,7 @@ class PaymentCallbackJob implements ShouldQueue
                     'provider' => 'fake',
                     'provider_ref' => $this->providerRef,
                     'amount_cents' => $order->total_cents,
-                    'status' => 'SUCCEEDED',
+                    'status' => Payment::STATUS_SUCCEEDED,
                     'paid_at' => now(),
                 ]
             );
@@ -106,7 +106,7 @@ class PaymentCallbackJob implements ShouldQueue
             }
 
             // Record failed payment
-            $this->recordPayment($order, 'FAILED', paidAt: null);
+            $this->recordPayment($order, Payment::STATUS_FAILED, paidAt: null);
 
             $order->update(['status' => Order::STATUS_FAILED]);
         });
