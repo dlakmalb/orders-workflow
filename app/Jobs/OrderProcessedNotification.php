@@ -45,7 +45,7 @@ class OrderProcessedNotification implements ShouldQueue
         $payload = [
             'order_id' => $order->id,
             'customer_id' => $order->customer_id,
-            'status' => $this->succeeded ? 'PAID' : 'FAILED',
+            'status' => $this->succeeded ? Order::STATUS_PAID : Order::STATUS_FAILED,
             'total_cents' => $order->total_cents,
         ];
 

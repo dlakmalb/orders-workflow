@@ -42,4 +42,9 @@ class Order extends BaseModel
     {
         return $this->belongsTo(Customer::class);
     }
+
+    public function orderItems(): HasOne
+    {
+        return $this->hasOne(OrderItem::class);
+    }
 }
