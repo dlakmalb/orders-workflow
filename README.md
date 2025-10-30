@@ -1,61 +1,146 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+<div align="center">
+    <h1>
+        📦 Orders Process Workflow<br/>
+        <sub><sup><sub>End-to-end asynchronous order management system</sub></sup></sub><br/>
+    </h1>
+</div>
+<br/>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+## 📝 Summary
+
+This project demonstrates asynchronous order processing with Laravel, Redis and Horizon.
+- CSV import → queued order processing
+- Stock reservation with concurrency control
+- Simulated payment + callback (PAID/FAILED)
+- Queued notifications with history table
+- Refunds (partial/full) processed asynchronously
+- Real-time KPIs (revenue / order count / AOV) + customer leaderboard in Redis
+
+## 🚀 Workflow Overview
+1. Import orders `OrdersImportCommand`
+    * Validates CSV header.
+    * Record customers/products/orders details.
+    * Recomputes order totals.
+    * Dispatches `ProcessOrderJob` per order.
+2. Order processing `ProcessOrderJob`
+    * Groups items by product.
+    * Acquires per-product Redis locks (avoid oversell).
+    * DB transaction + `lockForUpdate()` to check+decrement stock.
+    * Dispatches `FakeGatewayChargeJob`.
+3. Payment simulation `FakeGatewayChargeJob`
+    * This waits sometime and dispatches `PaymentCallbackJob` with success/failure.
+4. Finalize / Rollback `PaymentCallbackJob`
+    * On success → creates/updates payment, marks order `PAID`.
+    * On failure → restores stock, marks order `FAILED`.
+    * Updates KPIs/leaderboard via `KpiService`.
+    * Dispatches `OrderProcessedNotification` and logs to `notification_logs`.
+5. Notifications `OrderProcessedNotification`
+    * writes a history row with `order_id`, `customer_id`, `status`, `total_cents`, `channel`, `payload`, `sent_at`.
+6. Refunds (Partial or Full) `ProcessRefundJob`
+    * Validates amount vs order total.
+    * Idempotency via unique idempotency_key (optional) and status checks.
+    * Updates KPIs/leaderboard immediately via `KpiService::recordRefund()`.
+    * Marks refund `PROCESSED` (or `FAILED`)
+
+## ⚙️ Technology Stack
+
+- **PHP 8.2+**
+- **Laravel 12**
+- **MySQL 8+**
+- **Laravel Horizon**
+- **Redis** (queues, cache, session, KPIs/leaderboard)
+
+<p align="left">
+  <a href="https://skillicons.dev">
+    <img src="https://skillicons.dev/icons?i=php,laravel,mysql,redis" />
+  </a>
 </p>
 
-## About Laravel
+## 🛠️ Manual Setup (Local)
+1. Clone the repository<br/>
+```
+git clone https://github.com/dlakmalb/orders-workflow.git
+cd orders-workflow
+```
+2. Install dependencies<br/>
+```
+composer install
+```
+3. Environment setup<br/>
+```
+cp .env.example .env
+php artisan key:generate
+```
+4. Update `.env` to use Redis for everything
+```
+DB_DATABASE=your_db
+DB_USERNAME=your_user
+DB_PASSWORD=your_pass
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+REDIS_CLIENT=phpredis
+```
+5. Migrate the database
+```
+php artisan migrate
+```
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📁 Sample CSV
+Place a file at `orders_workflow/file.csv`.
+Minimal columns (headers required):
+```
+external_order_id
+order_placed_at
+currency
+customer_id
+customer_email
+customer_name
+product_sku
+product_name
+unit_price_cents
+qty
+```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 📺 Required Commands
+1. Import Orders (streamed & queued)
+```
+php artisan orders:import file.csv
+```
+2. Start Queue Workers
+```
+# Core processing (default queue)
+php artisan queue:work
 
-## Learning Laravel
+# Notifications queue
+php artisan queue:work --queue=notifications
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+# Refunds queue
+php artisan queue:work --queue=refunds
+```
+3. Horizon (queue dashboard)
+```
+php artisan horizon
+# visit http://orders-workflow.test/horizon
+```
+4. Refunds (Partial or Full)
+```
+php artisan orders:refund {order_id} {amount_cents} [--reason="text"] [--key="unique-id"]
+# example:
+php artisan orders:refund 42 5000 --reason="Partial refund" --key="GW-REF-0001"
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 📈 KPIs & Leaderboard (Redis)
+Daily KPIs (string keys)
+```
+kpi:YYYY-MM-DD:revenue_cents
+kpi:YYYY-MM-DD:order_count
+kpi:YYYY-MM-DD:avg_order_value_cents
+```
 
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Leaderboard (sorted set)
+```
+leaderboard:customers
+```
