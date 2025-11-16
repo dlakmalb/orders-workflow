@@ -25,6 +25,9 @@ class FakeGatewayChargeJob implements ShouldQueue
 
     /**
      * Execute the job.
+     *
+     * Simulates payment processing with configurable success rate.
+     * Default: 90% success rate (can be configured via FAKE_PAYMENT_SUCCESS_RATE env var)
      */
     public function handle(): void
     {
@@ -42,7 +45,15 @@ class FakeGatewayChargeJob implements ShouldQueue
             return;
         }
 
-        $success = ($order->total_cents % 2) === 0;
+        // Configurable success rate (default 90%)
+        $successRate = (int) config('services.fake_payment.success_rate', 90);
+        $success = (rand(1, 100) <= $successRate);
+
+        Log::info("Fake payment gateway processing order {$order->id}", [
+            'order_id' => $order->id,
+            'amount_cents' => $order->total_cents,
+            'success' => $success,
+        ]);
 
         PaymentCallbackJob::dispatch(
             orderId: $order->id,

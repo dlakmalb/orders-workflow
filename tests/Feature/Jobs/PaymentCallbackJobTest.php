@@ -5,6 +5,7 @@ use App\Jobs\PaymentCallbackJob;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Services\KpiService;
+use App\Services\StockService;
 use Illuminate\Support\Facades\Bus;
 use Mockery as M;
 
@@ -35,11 +36,14 @@ it('marks order PAID on success, updates KPIs, and dispatches notification', fun
     $kpis = M::mock(KpiService::class);
     $kpis->shouldReceive('recordSuccess')->once()->with($customer->id, 3000);
 
+    $stockService = M::mock(StockService::class);
+
     app()->instance(KpiService::class, $kpis);
+    app()->instance(StockService::class, $stockService);
 
     // Act
     (new PaymentCallbackJob(orderId: $order->id, succeeded: true, providerRef: 'FAKE-1'))
-        ->handle($kpis);
+        ->handle($kpis, $stockService);
 
     // Assert
     expect($order->fresh()->status)->toBe(Order::STATUS_PAID);
@@ -70,11 +74,16 @@ it('marks order FAILED on failure, updates KPIs (failure), and dispatches notifi
 
     $kpis = Mockery::mock(KpiService::class);
     $kpis->shouldReceive('recordFailure')->once()->with($customer->id, 3000);
+
+    $stockService = M::mock(StockService::class);
+    $stockService->shouldReceive('restoreForOrder')->once()->with(M::type(Order::class));
+
     app()->instance(KpiService::class, $kpis);
+    app()->instance(StockService::class, $stockService);
 
     // Act
     (new PaymentCallbackJob(orderId: $order->id, succeeded: false, providerRef: 'FAKE-2'))
-        ->handle($kpis);
+        ->handle($kpis, $stockService);
 
     // Assert
     expect($order->fresh()->status)->toBe(Order::STATUS_FAILED);
