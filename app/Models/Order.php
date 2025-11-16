@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends BaseModel
@@ -43,8 +44,18 @@ class Order extends BaseModel
         return $this->belongsTo(Customer::class);
     }
 
-    public function orderItems(): HasOne
+    public function orderItems(): HasMany
     {
-        return $this->hasOne(OrderItem::class);
+        return $this->hasMany(OrderItem::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
+    public function notificationLogs(): HasMany
+    {
+        return $this->hasMany(NotificationLog::class);
     }
 }

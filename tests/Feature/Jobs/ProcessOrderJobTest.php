@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Services\StockService;
 use Illuminate\Support\Facades\Bus;
 
 function seedOrderWithStock(bool $enough = true): Order
@@ -62,8 +63,10 @@ it('reserves stock and dispatches FakeGatewayChargeJob when stock is sufficient'
 
     $order = seedOrderWithStock(true);
 
+    $stockService = app(StockService::class);
+
     // Act
-    (new ProcessOrderJob($order->id))->handle();
+    (new ProcessOrderJob($order->id))->handle($stockService);
 
     // Assert & next step should be scheduled
     Bus::assertDispatched(FakeGatewayChargeJob::class, function ($job) use ($order) {
@@ -82,8 +85,10 @@ it('does not dispatch FakeGatewayChargeJob when stock is insufficient', function
 
     $order = seedOrderWithStock(false);
 
+    $stockService = app(StockService::class);
+
     // Act
-    (new ProcessOrderJob($order->id))->handle();
+    (new ProcessOrderJob($order->id))->handle($stockService);
 
     // Assert
     Bus::assertNotDispatched(FakeGatewayChargeJob::class);

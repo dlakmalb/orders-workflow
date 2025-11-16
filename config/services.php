@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Fake Payment Gateway Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the fake payment gateway used in development/testing.
+    | Success rate determines the percentage of payments that will succeed.
+    |
+    */
+
+    'fake_payment' => [
+        'success_rate' => env('FAKE_PAYMENT_SUCCESS_RATE', 90), // 90% success rate by default
+        'delay_seconds' => env('FAKE_PAYMENT_DELAY', 2), // Simulated processing delay
+    ],
+
 ];

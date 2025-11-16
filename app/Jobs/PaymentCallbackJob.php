@@ -3,10 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Payment;
-use App\Models\Product;
 use App\Services\KpiService;
+use App\Services\StockService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -36,7 +35,7 @@ class PaymentCallbackJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(KpiService $kpiService): void
+    public function handle(KpiService $kpiService, StockService $stockService): void
     {
         $order = Order::find($this->orderId);
 
@@ -59,7 +58,7 @@ class PaymentCallbackJob implements ShouldQueue
 
             OrderProcessedNotification::dispatch($order->id, true);
         } else {
-            $this->handleFailure($order);
+            $this->handleFailure($order, $stockService);
 
             $kpiService->recordFailure($order->customer_id, $order->total_cents);
 
@@ -86,24 +85,11 @@ class PaymentCallbackJob implements ShouldQueue
         });
     }
 
-    private function handleFailure(Order $order): void
+    private function handleFailure(Order $order, StockService $stockService): void
     {
-        DB::transaction(function () use ($order) {
+        DB::transaction(function () use ($order, $stockService) {
             // Put stock back (rollback the reservation)
-            $need = OrderItem::where('order_id', $order->id)
-                ->select(['product_id', 'qty'])
-                ->get()
-                ->groupBy('product_id')
-                ->map(fn ($rows) => $rows->sum('qty'));
-
-            $products = Product::whereIn('id', $need->keys())
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-
-            foreach ($need as $pid => $qty) {
-                $products[$pid]?->increment('stock_qty', $qty);
-            }
+            $stockService->restoreForOrder($order);
 
             // Record failed payment
             $this->recordPayment($order, Payment::STATUS_FAILED, paidAt: null);

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
 class NotificationLog extends BaseModel
 {
     protected $fillable = [
@@ -21,4 +23,14 @@ class NotificationLog extends BaseModel
         'success' => 'boolean',
         'sent_at' => 'immutable_datetime',
     ];
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
 }
