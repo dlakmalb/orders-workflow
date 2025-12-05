@@ -24,13 +24,20 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
      * Register the Horizon gate.
      *
      * This gate determines who can access Horizon in non-local environments.
+     * In production, restrict access to authorized admin users only.
      */
     protected function gate(): void
     {
         Gate::define('viewHorizon', function ($user = null) {
-            return in_array(optional($user)->email, [
-                //
-            ]);
+            // Allow in local environment for development
+            if (app()->environment('local')) {
+                return true;
+            }
+
+            // In production, check against authorized admin emails
+            $authorizedEmails = explode(',', config('horizon.admins', ''));
+
+            return $user && in_array($user->email, array_filter($authorizedEmails));
         });
     }
 }
