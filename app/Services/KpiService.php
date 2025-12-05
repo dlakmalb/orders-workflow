@@ -37,7 +37,6 @@ class KpiService
     public function recordFailure(int $customerId, int $amountCents): void
     {
         Redis::incr($this->kpiKey('failed_order_count'));
-        // Note: We do NOT decrement revenue since it was never added
     }
 
     /**
