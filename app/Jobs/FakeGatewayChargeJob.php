@@ -44,6 +44,12 @@ class FakeGatewayChargeJob implements ShouldQueue
 
         $success = ($order->total_cents % 2) === 0;
 
+        Log::info("Fake payment gateway processing order {$order->id}", [
+            'order_id' => $order->id,
+            'amount_cents' => $order->total_cents,
+            'success' => $success,
+        ]);
+
         PaymentCallbackJob::dispatch(
             orderId: $order->id,
             succeeded: $success,
